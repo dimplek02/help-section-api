@@ -12,12 +12,19 @@ exports.createHelp = async (req, res) => {
 exports.getAllHelp = async (req, res) => {
   try {
     const result = await helpService.getAllHelp(req.query.category);
-    res.status(200).json(result);
+    res.status(result.status).json(result.response);
   } catch (err) {
     res.status(500).json({ status: "error", message: err.message });
   }
 };
-
+exports.getHelpById = async (req, res) => {
+  try {
+    const result = await helpService.getHelpById(req.params.id);
+    res.status(result.status).json(result.response);
+  } catch (err) {
+    res.status(500).json({ status: "error", message: err.message });
+  }
+};
 exports.updateHelp = async (req, res) => {
   try {
     const result = await helpService.updateHelp(req.params.id, req.body);

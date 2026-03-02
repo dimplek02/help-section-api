@@ -1,4 +1,4 @@
-const db = require("../config/db");
+const helpModel = require("../models/help.model");
 
 const allowedCategories = [
   "contact",
@@ -9,150 +9,151 @@ const allowedCategories = [
   "bug_report"
 ];
 
-// CREATE
-exports.createHelp = (data) => {
-  return new Promise((resolve, reject) => {
-    const { category, title, sub_title, content } = data;
+/* CREATE */
+exports.createHelp = async (data) => {
+  const { category, title, sub_title, content } = data;
 
-    // Validate category
-    if (!allowedCategories.includes(category)) {
-      return resolve({
-        status: 400,
-        response: {
-          status: "error",
-          message: "Invalid category"
-        }
-      });
-    }
-
-    if (!content) {
-      return resolve({
-        status: 400,
-        response: {
-          status: "error",
-          message: "Content is required"
-        }
-      });
-    }
-
-    const sql = `
-      INSERT INTO help_contents (category, title, sub_title, content)
-      VALUES (?, ?, ?, ?)
-    `;
-
-    db.query(sql, [category, title, sub_title, content], (err, result) => {
-      if (err) return reject(err);
-
-      resolve({
-        status: 201,
-        response: {
-          status: "success",
-          data: {
-            id: result.insertId,
-            category,
-            title,
-            sub_title,
-            content
-          }
-        }
-      });
-    });
-  });
-};
-
-
-// GET ALL (with optional category filter)
-exports.getAllHelp = (category) => {
-  return new Promise((resolve, reject) => {
-    let sql = "SELECT * FROM help_contents";
-
-    if (category) {
-      sql += " WHERE category = ?";
-      db.query(sql, [category], (err, results) => {
-        if (err) return reject(err);
-
-        resolve({
-          status: "success",
-          results: results.length,
-          data: results
-        });
-      });
-    } else {
-      db.query(sql, (err, results) => {
-        if (err) return reject(err);
-
-        resolve({
-          status: "success",
-          results: results.length,
-          data: results
-        });
-      });
-    }
-  });
-};
-
-
-// UPDATE
-exports.updateHelp = (id, data) => {
-  return new Promise((resolve, reject) => {
-    const { title, sub_title, content } = data;
-
-    const sql = `
-      UPDATE help_contents
-      SET title = ?, sub_title = ?, content = ?
-      WHERE id = ?
-    `;
-
-    db.query(sql, [title, sub_title, content, id], (err, result) => {
-      if (err) return reject(err);
-
-      if (result.affectedRows === 0) {
-        return resolve({
-          status: 404,
-          response: {
-            status: "error",
-            message: "Help item not found"
-          }
-        });
+  if (!category || !content) {
+    return {
+      status: 400,
+      response: {
+        status: "error",
+        message: "Category and content are required"
       }
+    };
+  }
 
-      resolve({
-        status: 200,
-        response: {
-          status: "success",
-          message: "Updated successfully"
-        }
-      });
-    });
-  });
+  if (!allowedCategories.includes(category)) {
+    return {
+      status: 400,
+      response: {
+        status: "error",
+        message: "Invalid category"
+      }
+    };
+  }
+
+  const result = await helpModel.insertHelp(
+    category,
+    title,
+    sub_title,
+    content
+  );
+
+  return {
+    status: 201,
+    response: {
+      status: "success",
+      data: {
+        id: result.insertId,
+        category,
+        title,
+        sub_title,
+        content
+      }
+    }
+  };
 };
 
+/* GET ALL */
+exports.getAllHelp = async (category) => {
 
-// DELETE
-exports.deleteHelp = (id) => {
-  return new Promise((resolve, reject) => {
-    const sql = "DELETE FROM help_contents WHERE id = ?";
-
-    db.query(sql, [id], (err, result) => {
-      if (err) return reject(err);
-
-      if (result.affectedRows === 0) {
-        return resolve({
-          status: 404,
-          response: {
-            status: "error",
-            message: "Help item not found"
-          }
-        });
+  if (category && !allowedCategories.includes(category)) {
+    return {
+      status: 400,
+      response: {
+        status: "error",
+        message: "Invalid category"
       }
+    };
+  }
 
-      resolve({
-        status: 200,
-        response: {
-          status: "success",
-          message: "Deleted successfully"
-        }
-      });
-    });
-  });
+  const results = category
+    ? await helpModel.getByCategory(category)
+    : await helpModel.getAll();
+
+  return {
+    status: 200,
+    response: {
+      status: "success",
+      results: results.length,
+      data: results
+    }
+  };
+};
+
+/* GET BY ID */
+exports.getHelpById = async (id) => {
+  const results = await helpModel.getById(id);
+
+  if (results.length === 0) {
+    return {
+      status: 404,
+      response: {
+        status: "error",
+        message: "Help item not found"
+      }
+    };
+  }
+
+  return {
+    status: 200,
+    response: {
+      status: "success",
+      data: results[0]
+    }
+  };
+};
+
+/* UPDATE */
+exports.updateHelp = async (id, data) => {
+  const { title, sub_title, content } = data;
+
+  const result = await helpModel.updateById(
+    id,
+    title,
+    sub_title,
+    content
+  );
+
+  if (result.affectedRows === 0) {
+    return {
+      status: 404,
+      response: {
+        status: "error",
+        message: "Help item not found"
+      }
+    };
+  }
+
+  return {
+    status: 200,
+    response: {
+      status: "success",
+      message: "Updated successfully"
+    }
+  };
+};
+
+/* DELETE */
+exports.deleteHelp = async (id) => {
+  const result = await helpModel.deleteById(id);
+
+  if (result.affectedRows === 0) {
+    return {
+      status: 404,
+      response: {
+        status: "error",
+        message: "Help item not found"
+      }
+    };
+  }
+
+  return {
+    status: 200,
+    response: {
+      status: "success",
+      message: "Deleted successfully"
+    }
+  };
 };
